@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Futures Pro Mobile</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              app: '#000000',
+              panel: '#1c1c1e',
+              border: '#2c2c2e',
+              up: '#ff3b30',
+              down: '#34c759',
+              accent: '#0a84ff',
+              textMain: '#ffffff',
+              textSub: '#8e8e93',
+            },
+            fontFamily: {
+              mono: ['"SF Mono"', 'SFMono-Regular', 'ui-monospace', 'Menlo', 'monospace'],
+              sans: ['-apple-system', 'BlinkMacSystemFont', '"SF Pro Text"', '"Helvetica Neue"', 'Helvetica', 'sans-serif'],
+            },
+            animation: {
+              'slide-up': 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+              'fade-in': 'fadeIn 0.2s ease-out',
+              'pop': 'pop 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+              'rain': 'rain 0.5s linear infinite',
+            },
+            keyframes: {
+              slideUp: {
+                '0%': { transform: 'translateY(100%)' },
+                '100%': { transform: 'translateY(0)' },
+              },
+              fadeIn: {
+                '0%': { opacity: '0' },
+                '100%': { opacity: '1' },
+              },
+              pop: {
+                '0%': { transform: 'scale(0.9)', opacity: '0' },
+                '100%': { transform: 'scale(1)', opacity: '1' },
+              },
+              rain: {
+                '0%': { transform: 'translateY(-10vh)' },
+                '100%': { transform: 'translateY(100vh)' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      html, body {
+        height: 100%;
+        overflow: hidden; /* Prevent elastic scrolling on iOS */
+      }
+      body {
+        overscroll-behavior: none;
+        -webkit-tap-highlight-color: transparent;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      /* Hide Scrollbar */
+      ::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      
+      .safe-bottom {
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+      
+      /* Rain Effect */
+      .rain-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 1000;
+        overflow: hidden;
+      }
+      .drop {
+        position: absolute;
+        width: 2px;
+        height: 15px;
+        background: rgba(255, 255, 255, 0.5);
+        animation: rain 0.8s linear infinite;
+      }
+
+      /* Custom Range Slider */
+      input[type=range] {
+        -webkit-appearance: none;
+        width: 100%;
+        background: transparent;
+      }
+      input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        height: 16px;
+        width: 16px;
+        border-radius: 50%;
+        background: #0a84ff;
+        cursor: pointer;
+        margin-top: -6px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+      }
+      input[type=range]::-webkit-slider-runnable-track {
+        width: 100%;
+        height: 4px;
+        cursor: pointer;
+        background: rgba(128,128,128,0.3);
+        border-radius: 2px;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "lightweight-charts": "https://aistudiocdn.com/lightweight-charts@^5.0.9"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,5 @@
+{
+  "name": "Futures Pro Mobile",
+  "description": "A high-fidelity, mobile-optimized futures trading replay simulator featuring simulated market data, order book dynamics, and technical analysis charts in an iOS-style interface.",
+  "requestFramePermissions": []
+}
