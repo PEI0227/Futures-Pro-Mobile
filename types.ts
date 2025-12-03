@@ -15,6 +15,7 @@ export interface SymbolConfig {
   volatility: number;
   multiplier: number;
   marginRate: number; // e.g., 0.1 for 10%
+  isHot?: boolean;
 }
 
 export enum OrderType {

@@ -205,9 +205,52 @@ const App: React.FC = () => {
 
   // Trading
   const executeTrade = (dir: 1 | -1) => {
+    if (qty < 1) {
+        addToast("最少交易1手", 'error');
+        return;
+    }
+
     const price = lastPrice;
     const time = currentBar.time;
 
+    // Check for Reversal Logic: If holding pos and new trade is opposite AND qty > pos.qty
+    if (position && position.symbol === symbolCode && Math.sign(position.qty) !== dir) {
+        const absPosQty = Math.abs(position.qty);
+        if (qty > absPosQty) {
+            // Reversal Triggered
+            const closeQty = absPosQty;
+            const openQty = qty - closeQty;
+            
+            // 1. Close Existing
+            const closePnl = (price - position.entryPrice) * closeQty * Math.sign(position.qty) * symbol.multiplier;
+            const newBalance = balance + closePnl;
+            
+            // Check Margin for the New Position (openQty)
+            const requiredMargin = price * openQty * symbol.multiplier * symbol.marginRate;
+            if (newBalance < requiredMargin) {
+                 addToast(`反手资金不足! 需 ${formatMoney(requiredMargin)}`, 'error');
+                 return;
+            }
+
+            // Execute Close
+            setBalance(newBalance);
+            setTrades(t => [...t, { id: Date.now(), time, price, qty: closeQty, dir, action: 'Close', pnl: closePnl }]);
+            
+            // Execute Open (Reversal)
+            setPosition({ symbol: symbolCode, qty: openQty * dir, entryPrice: price });
+            setTrades(t => [...t, { id: Date.now()+1, time, price, qty: openQty, dir, action: 'Open' }]);
+            
+            setMarkers(m => [
+                ...m, 
+                { time, position: dir===1?'belowBar':'aboveBar', color: '#d4af37', shape: 'circle', text: 'Rev' }
+            ]);
+            
+            addToast(`触发反手: 平${closeQty} 开${openQty}`, 'success');
+            return;
+        }
+    }
+
+    // Standard Open Logic (Add to pos or Open new)
     if (!position || Math.sign(position.qty) === dir) {
         const requiredMargin = price * qty * symbol.multiplier * symbol.marginRate;
         if (balance < requiredMargin) {
@@ -218,6 +261,7 @@ const App: React.FC = () => {
 
     if (position) {
         if (position.symbol === symbolCode && Math.sign(position.qty) !== dir) {
+            // Partial Close or Full Close
             const closeQty = Math.min(Math.abs(position.qty), qty);
             const realizedPnl = (price - position.entryPrice) * closeQty * Math.sign(position.qty) * symbol.multiplier;
             setBalance(b => b + realizedPnl);
@@ -347,6 +391,9 @@ const App: React.FC = () => {
   }
 
   if (view === 'home') {
+    const hotSymbols = SYMBOLS.filter(s => s.isHot);
+    const otherSymbols = SYMBOLS.filter(s => !s.isHot);
+
     return (
         <div className="flex flex-col h-screen bg-gray-50 dark:bg-app text-gray-900 dark:text-textMain overflow-y-auto transition-colors duration-300 font-sans">
             <header className="sticky top-0 z-10 bg-white/80 dark:bg-panel/80 backdrop-blur-md border-b border-gray-200 dark:border-border p-4 flex justify-between items-center shadow-sm">
@@ -358,22 +405,40 @@ const App: React.FC = () => {
                     {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
                 </div>
             </header>
-            <div className="p-4 space-y-3">
-                <div className="text-sm font-bold text-gray-500 ml-1">热门合约</div>
-                {SYMBOLS.filter(s=>s.code !== 'eth_usdt').map(s => (
-                    <div key={s.code} 
-                         onClick={() => enterReplay(s.code)}
-                         className="bg-white dark:bg-panel border border-gray-200 dark:border-border p-4 rounded-2xl flex justify-between items-center active:scale-[0.98] transition-all shadow-sm cursor-pointer">
-                        <div>
-                            <div className="font-bold text-base text-gray-900 dark:text-white">{s.name}</div>
-                            <div className="text-xs text-gray-400 dark:text-textSub font-mono mt-1">{s.code.toUpperCase()}</div>
+            <div className="p-4 space-y-4">
+                <div className="text-sm font-bold text-gray-500 ml-1 flex items-center gap-1">
+                     <span className="text-red-500">🔥</span> 热门精选
+                </div>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                    {hotSymbols.map(s => (
+                        <div key={s.code} onClick={() => enterReplay(s.code)}
+                             className="bg-white dark:bg-panel border border-gray-200 dark:border-border p-4 rounded-2xl active:scale-[0.98] transition-all shadow-sm cursor-pointer relative overflow-hidden group">
+                             <div className="absolute top-0 right-0 bg-red-500 text-white text-[9px] px-2 py-0.5 rounded-bl-lg">HOT</div>
+                             <div className="font-bold text-gray-900 dark:text-white">{s.name}</div>
+                             <div className="flex justify-between items-end mt-2">
+                                <div className="text-xs text-gray-400 dark:text-textSub font-mono">{s.code.toUpperCase()}</div>
+                                <div className="font-mono font-bold text-lg text-accent">{s.basePrice}</div>
+                             </div>
                         </div>
-                        <div className="text-right">
-                            <div className="font-mono font-bold text-lg text-gray-900 dark:text-textMain">{s.basePrice}</div>
-                            <div className="text-xs text-accent">点击复盘</div>
+                    ))}
+                </div>
+
+                <div className="text-sm font-bold text-gray-500 ml-1">全部标的</div>
+                <div className="space-y-3">
+                    {otherSymbols.map(s => (
+                        <div key={s.code} onClick={() => enterReplay(s.code)}
+                             className="bg-white dark:bg-panel border border-gray-200 dark:border-border p-4 rounded-2xl flex justify-between items-center active:scale-[0.98] transition-all shadow-sm cursor-pointer">
+                            <div>
+                                <div className="font-bold text-base text-gray-900 dark:text-white">{s.name}</div>
+                                <div className="text-xs text-gray-400 dark:text-textSub font-mono mt-1">{s.code.toUpperCase()}</div>
+                            </div>
+                            <div className="text-right">
+                                <div className="font-mono font-bold text-lg text-gray-900 dark:text-textMain">{s.basePrice}</div>
+                                <div className="text-xs text-accent">复盘</div>
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    ))}
+                </div>
             </div>
         </div>
     );
@@ -383,56 +448,81 @@ const App: React.FC = () => {
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-app text-gray-900 dark:text-textMain font-sans select-none overflow-hidden transition-colors duration-300">
       <Toast toasts={toasts} removeToast={removeToast} />
 
-      {/* 1. Header */}
-      <header className="flex items-center justify-between px-4 h-[44px] bg-white dark:bg-panel border-b border-gray-200 dark:border-border shrink-0 z-20 shadow-sm">
-        <div className="flex items-center gap-2 cursor-pointer active:opacity-60" onClick={goHome}>
-            <BackIcon />
-            <div>
-                <span className="font-bold text-base">{symbol.name}</span>
-                <span className="ml-2 text-[10px] bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded font-mono">{symbolCode.toUpperCase()}</span>
+      {/* Portrait Header Group: Hidden in Landscape */}
+      <div className="flex flex-col shrink-0 landscape:hidden">
+          {/* 1. Header */}
+          <header className="flex items-center justify-between px-4 h-[44px] bg-white dark:bg-panel border-b border-gray-200 dark:border-border shrink-0 z-20 shadow-sm">
+            <div className="flex items-center gap-2 cursor-pointer active:opacity-60" onClick={goHome}>
+                <BackIcon />
+                <div>
+                    <span className="font-bold text-base">{symbol.name}</span>
+                    <span className="ml-2 text-[10px] bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded font-mono">{symbolCode.toUpperCase()}</span>
+                </div>
             </div>
-        </div>
-        <div className="flex items-center gap-4 text-gray-400 dark:text-textSub">
-            <div onClick={() => setIsFavorite(!isFavorite)}><StarIcon filled={isFavorite} /></div>
-            <SearchIcon />
-        </div>
-      </header>
+            <div className="flex items-center gap-4 text-gray-400 dark:text-textSub">
+                <div onClick={() => setIsFavorite(!isFavorite)}><StarIcon filled={isFavorite} /></div>
+                <SearchIcon />
+            </div>
+          </header>
 
-      {/* 2. Info Bar */}
-      <div className="flex items-center px-4 py-3 bg-white dark:bg-panel border-b border-gray-200 dark:border-border shrink-0 z-10">
-        <div className="flex-1">
-            <div className={`text-4xl font-bold font-mono tracking-tighter leading-none ${change >= 0 ? 'text-up' : 'text-down'}`}>
-                {formatPrice(lastPrice, symbolCode)}
+          {/* 2. Info Bar */}
+          <div className="flex items-center px-4 py-3 bg-white dark:bg-panel border-b border-gray-200 dark:border-border shrink-0 z-10">
+            <div className="flex-1">
+                <div className={`text-4xl font-bold font-mono tracking-tighter leading-none ${change >= 0 ? 'text-up' : 'text-down'}`}>
+                    {formatPrice(lastPrice, symbolCode)}
+                </div>
+                <div className="flex gap-3 text-xs font-mono mt-1.5 font-semibold">
+                    <span className={change >= 0 ? 'text-up' : 'text-down'}>{change>0?'+':''}{formatPrice(change, symbolCode)}</span>
+                    <span className={change >= 0 ? 'text-up' : 'text-down'}>{change>0?'+':''}{changePercent.toFixed(2)}%</span>
+                </div>
             </div>
-            <div className="flex gap-3 text-xs font-mono mt-1.5 font-semibold">
-                <span className={change >= 0 ? 'text-up' : 'text-down'}>{change>0?'+':''}{formatPrice(change, symbolCode)}</span>
-                <span className={change >= 0 ? 'text-up' : 'text-down'}>{change>0?'+':''}{changePercent.toFixed(2)}%</span>
+            <div className="flex-1 grid grid-cols-2 gap-y-1 gap-x-2 text-xs text-gray-400 dark:text-textSub text-right font-mono">
+                <div>高 <span className="text-gray-900 dark:text-textMain font-bold text-sm">{formatPrice(currentBar.high, symbolCode)}</span></div>
+                <div>开 <span className="text-gray-900 dark:text-textMain font-bold text-sm">{formatPrice(currentBar.open, symbolCode)}</span></div>
+                <div>低 <span className="text-gray-900 dark:text-textMain font-bold text-sm">{formatPrice(currentBar.low, symbolCode)}</span></div>
+                <div>量 <span className="text-yellow-600 dark:text-yellow-500 font-bold text-sm">{currentBar.volume}</span></div>
             </div>
-        </div>
-        <div className="flex-1 grid grid-cols-2 gap-y-1 gap-x-2 text-xs text-gray-400 dark:text-textSub text-right font-mono">
-            <div>高 <span className="text-gray-900 dark:text-textMain font-bold text-sm">{formatPrice(currentBar.high, symbolCode)}</span></div>
-            <div>开 <span className="text-gray-900 dark:text-textMain font-bold text-sm">{formatPrice(currentBar.open, symbolCode)}</span></div>
-            <div>低 <span className="text-gray-900 dark:text-textMain font-bold text-sm">{formatPrice(currentBar.low, symbolCode)}</span></div>
-            <div>量 <span className="text-yellow-600 dark:text-yellow-500 font-bold text-sm">{currentBar.volume}</span></div>
-        </div>
+          </div>
+
+          {/* 3. Timeframe Tabs */}
+          <div className="flex bg-gray-50 dark:bg-app border-b border-gray-200 dark:border-border shrink-0 overflow-x-auto no-scrollbar z-10">
+            {TIMEFRAMES.map(tf => (
+                <div key={tf.value} 
+                     onClick={() => handleTimeframeChange(tf.value)}
+                     className={`px-4 py-2.5 text-sm whitespace-nowrap cursor-pointer transition-colors font-medium ${
+                         timeframe === tf.value 
+                         ? 'text-accent border-b-2 border-accent' 
+                         : 'text-gray-500 dark:text-textSub'
+                     }`}>
+                    {tf.label}
+                </div>
+            ))}
+            <div className="ml-auto px-4 py-2.5 text-gray-400 dark:text-textSub active:text-accent" onClick={() => setActiveSheet('settings')}>
+                <SettingsIcon />
+            </div>
+          </div>
       </div>
 
-      {/* 3. Timeframe Tabs */}
-      <div className="flex bg-gray-50 dark:bg-app border-b border-gray-200 dark:border-border shrink-0 overflow-x-auto no-scrollbar z-10">
-        {TIMEFRAMES.map(tf => (
-            <div key={tf.value} 
-                 onClick={() => handleTimeframeChange(tf.value)}
-                 className={`px-4 py-2.5 text-sm whitespace-nowrap cursor-pointer transition-colors font-medium ${
-                     timeframe === tf.value 
-                     ? 'text-accent border-b-2 border-accent' 
-                     : 'text-gray-500 dark:text-textSub'
-                 }`}>
-                {tf.label}
+      {/* Landscape Header (Visible only in Landscape) */}
+      <div className="hidden landscape:flex items-center justify-between px-4 h-10 bg-white dark:bg-panel border-b border-gray-200 dark:border-border shrink-0 z-20">
+          <div className="flex items-center gap-4">
+            <div onClick={goHome} className="cursor-pointer text-gray-500 dark:text-textSub hover:text-gray-900 dark:hover:text-white"><BackIcon /></div>
+            <div className="font-bold text-sm">{symbol.name} <span className="text-xs font-mono text-gray-400">{symbolCode.toUpperCase()}</span></div>
+            <div className={`font-mono font-bold text-sm ${change >= 0 ? 'text-up' : 'text-down'}`}>
+                {formatPrice(lastPrice, symbolCode)} <span className="text-xs ml-1">({changePercent.toFixed(2)}%)</span>
             </div>
-        ))}
-        <div className="ml-auto px-4 py-2.5 text-gray-400 dark:text-textSub active:text-accent" onClick={() => setActiveSheet('settings')}>
-            <SettingsIcon />
-        </div>
+          </div>
+          <div className="flex items-center gap-4">
+             <div className="flex gap-2">
+                 {TIMEFRAMES.map(tf => (
+                     <div key={tf.value} onClick={() => handleTimeframeChange(tf.value)} 
+                          className={`text-xs cursor-pointer px-2 py-1 rounded transition-colors ${timeframe === tf.value ? 'bg-accent text-white' : 'text-gray-500 hover:text-gray-900 dark:text-textSub dark:hover:text-white'}`}>
+                        {tf.label}
+                     </div>
+                 ))}
+             </div>
+             <div onClick={() => setActiveSheet('settings')} className="cursor-pointer text-gray-500 dark:text-textSub hover:text-gray-900 dark:hover:text-white"><SettingsIcon /></div>
+          </div>
       </div>
 
       {/* 4. Chart & Indicator */}
@@ -488,9 +578,9 @@ const App: React.FC = () => {
       </div>
 
       {/* 5. Bottom Action Bar */}
-      <div className="h-[64px] bg-white/95 dark:bg-panel/95 backdrop-blur-md border-t border-gray-200 dark:border-border flex items-center justify-between px-4 pb-safe safe-bottom shrink-0 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] relative">
+      <div className="h-[64px] landscape:h-[48px] bg-white/95 dark:bg-panel/95 backdrop-blur-md border-t border-gray-200 dark:border-border flex items-center justify-between px-4 pb-safe safe-bottom shrink-0 z-30 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] relative">
         <div className="flex items-center gap-3">
-             <button onClick={() => setIsPlaying(!isPlaying)} className={`w-11 h-11 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform ${
+             <button onClick={() => setIsPlaying(!isPlaying)} className={`w-11 h-11 landscape:w-8 landscape:h-8 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform ${
                  isPlaying 
                  ? 'bg-accent text-white' 
                  : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white'
@@ -506,17 +596,17 @@ const App: React.FC = () => {
         <div className="flex gap-5">
              <button onClick={() => setActiveSheet('position')} className="flex flex-col items-center text-gray-400 dark:text-textSub hover:text-gray-900 dark:hover:text-white relative transition-colors">
                 <WalletIcon />
-                <span className="text-[10px] mt-1 font-medium">持仓</span>
+                <span className="text-[10px] mt-1 font-medium landscape:hidden">持仓</span>
                 {position && <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-accent rounded-full border-2 border-white dark:border-panel"></span>}
              </button>
              
-             <button onClick={() => setActiveSheet('trade')} className="bg-up text-white px-8 py-2.5 rounded-full font-bold text-sm shadow-lg shadow-red-500/20 active:scale-95 transition-transform">
+             <button onClick={() => setActiveSheet('trade')} className="bg-up text-white px-8 landscape:px-4 py-2.5 landscape:py-1.5 rounded-full font-bold text-sm shadow-lg shadow-red-500/20 active:scale-95 transition-transform">
                 交易
              </button>
 
              <button onClick={() => setActiveSheet('more')} className="flex flex-col items-center text-gray-400 dark:text-textSub hover:text-gray-900 dark:hover:text-white transition-colors">
                 <MenuIcon />
-                <span className="text-[10px] mt-1 font-medium">更多</span>
+                <span className="text-[10px] mt-1 font-medium landscape:hidden">更多</span>
              </button>
         </div>
       </div>
@@ -537,8 +627,6 @@ const App: React.FC = () => {
       )}
 
       {/* More Sheet, Measure Config, Alerts, Overlay, Trade, Position, Settings are identical to previous version, assume they are retained in full update */}
-      {/* ... */}
-      {/* I will include the rest of the sheet logic here to ensure full file integrity */}
       
       {activeSheet === 'more' && (
           <>

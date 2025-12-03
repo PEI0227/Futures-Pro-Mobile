@@ -1,10 +1,6 @@
-import React, { useEffect } from 'react';
 
-export interface ToastMsg {
-  id: number;
-  message: string;
-  type: 'success' | 'error' | 'info';
-}
+import React, { useEffect, useState } from 'react';
+import { ToastMsg } from '../types';
 
 interface Props {
   toasts: ToastMsg[];
@@ -13,7 +9,7 @@ interface Props {
 
 const Toast: React.FC<Props> = ({ toasts, removeToast }) => {
   return (
-    <div className="fixed top-16 left-0 right-0 z-50 flex flex-col items-center pointer-events-none space-y-2 p-4">
+    <div className="fixed top-16 left-0 right-0 z-[100] flex flex-col items-center pointer-events-none space-y-2 p-4">
       {toasts.map((t) => (
         <ToastItem key={t.id} toast={t} onRemove={() => removeToast(t.id)} />
       ))}
@@ -22,15 +18,35 @@ const Toast: React.FC<Props> = ({ toasts, removeToast }) => {
 };
 
 const ToastItem: React.FC<{ toast: ToastMsg; onRemove: () => void }> = ({ toast, onRemove }) => {
-  useEffect(() => {
-    const timer = setTimeout(onRemove, 2500);
-    return () => clearTimeout(timer);
-  }, [onRemove]);
+  const [isExiting, setIsExiting] = useState(false);
 
-  const bg = toast.type === 'success' ? 'bg-down/90' : toast.type === 'error' ? 'bg-up/90' : 'bg-gray-800/90';
+  useEffect(() => {
+    // Start exit animation after 2s
+    const exitTimer = setTimeout(() => {
+        setIsExiting(true);
+    }, 2000);
+
+    return () => clearTimeout(exitTimer);
+  }, []);
+
+  useEffect(() => {
+      if (isExiting) {
+          // Wait for CSS animation (300ms) then remove
+          const removeTimer = setTimeout(onRemove, 300);
+          return () => clearTimeout(removeTimer);
+      }
+  }, [isExiting, onRemove]);
+
+  const bg = toast.type === 'success' ? 'bg-down/90 dark:bg-down/80' : toast.type === 'error' ? 'bg-up/90 dark:bg-up/80' : 'bg-gray-800/90 dark:bg-gray-700/90';
 
   return (
-    <div className={`${bg} backdrop-blur-md text-white px-4 py-2.5 rounded-full shadow-lg text-sm font-medium animate-pop flex items-center gap-2`}>
+    <div 
+        className={`
+            ${bg} backdrop-blur-md text-white px-4 py-2.5 rounded-full shadow-lg text-sm font-medium flex items-center gap-2
+            transition-all duration-300 transform
+            ${isExiting ? 'opacity-0 -translate-y-4 scale-95' : 'opacity-100 translate-y-0 scale-100 animate-pop'}
+        `}
+    >
       {toast.type === 'success' && (
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />

@@ -400,7 +400,8 @@ const ChartBoard: React.FC<Props> = ({
 
   return (
     <div className={`flex flex-1 h-full overflow-hidden border-b relative ${isDark ? 'border-border' : 'border-gray-200'}`}>
-        <div className={`h-full relative border-r transition-all duration-300 ${showOrderBook ? 'w-[68%]' : 'w-full'} ${isDark ? 'bg-app border-border' : 'bg-white border-gray-200'}`}>
+        {/* Adjusted width logic for landscape mode */}
+        <div className={`h-full relative border-r transition-all duration-300 ${showOrderBook ? 'w-[68%] landscape:w-[calc(100%-240px)]' : 'w-full'} ${isDark ? 'bg-app border-border' : 'bg-white border-gray-200'}`}>
             
             {/* 1. Chart Container - Render FIRST so overlays are on top */}
             {/* Added cursor style based on mode */}
@@ -553,8 +554,8 @@ const ChartBoard: React.FC<Props> = ({
             )}
         </div>
         
-        {/* Order Book Area */}
-        <div className={`flex flex-col font-mono transition-all duration-300 overflow-hidden ${showOrderBook ? 'w-[32%]' : 'w-0'} ${isDark ? 'bg-panel' : 'bg-gray-50'}`}>
+        {/* Order Book Area - Optimized for Landscape */}
+        <div className={`flex flex-col font-mono transition-all duration-300 overflow-hidden ${showOrderBook ? 'w-[32%] landscape:w-[240px]' : 'w-0'} ${isDark ? 'bg-panel' : 'bg-gray-50'}`}>
             <div className={`p-1.5 text-center text-[10px] border-b font-sans font-medium ${isDark ? 'text-textSub border-border' : 'text-gray-500 border-gray-200'}`}>五档盘口</div>
             <div className="flex flex-col gap-0.5 overflow-y-auto py-1">
                 <div className="flex flex-col-reverse">
@@ -600,4 +601,3 @@ const ChartBoard: React.FC<Props> = ({
 };
 
 export default ChartBoard;
-    
